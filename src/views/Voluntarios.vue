@@ -1,341 +1,335 @@
-<script setup>
-import { ref, onMounted, computed } from 'vue';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  onSnapshot, 
-  query 
-} from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-
-// Importando componentes globais
-import MenuLateral from '../components/MenuLateral.vue';
-
-// Configurações Globais do Firebase
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'smc-padre-pio';
-
-// Estado Reativo
-const voluntarios = ref([]);
-const loading = ref(true);
-const showModal = ref(false);
-const isEditing = ref(false);
-const searchTerm = ref('');
-const user = ref(null);
-
-// Dados do Formulário
-const initialForm = {
-  nome: '',
-  especialidade: '',
-  categoria: '',
-  diaSemana: '',
-  horario: '',
-  tempoConsulta: 20,
-  telefone: '',
-  observacoes: ''
-};
-const form = ref({ ...initialForm });
-const currentId = ref(null);
-
-// Opções Pré-definidas
-const especialidades = [
-  'Clínica Médica', 'Dermatologia', 'Endocrinologia', 'Ginecologia', 
-  'Nutrição', 'Psicologia', 'Reumatologia', 'Fisioterapia', 
-  'Gastroenterologia', 'Outros'
-];
-const categorias = ['Adultos', 'Pediatria', 'Adulto e Pediatria'];
-const diasSemana = [
-  'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
-  'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'
-];
-const listaObservacoes = ['Semanal', '15 em 15 dias', '1 vez por mês', 'Inativo'];
-
-// Inicialização do Firebase e Firestore
-let db;
-let auth;
-
-onMounted(async () => {
-  const { initializeApp } = await import('firebase/app');
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  auth = getAuth(app);
-
-  onAuthStateChanged(auth, (u) => {
-    user.value = u;
-    if (u) {
-      listenToVoluntarios();
-    } else {
-      signInAnonymously(auth);
-    }
-  });
-});
-
-const listenToVoluntarios = () => {
-  if (!user.value) return;
-  const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'voluntarios');
-  const q = query(colRef);
-  
-  onSnapshot(q, (snapshot) => {
-    voluntarios.value = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    loading.value = false;
-  }, (error) => {
-    console.error("Erro ao escutar voluntários:", error);
-    loading.value = false;
-  });
-};
-
-const openAddModal = () => {
-  isEditing.value = false;
-  form.value = { ...initialForm };
-  showModal.value = true;
-};
-
-const openEditModal = (voluntario) => {
-  isEditing.value = true;
-  currentId.value = voluntario.id;
-  form.value = { ...voluntario };
-  showModal.value = true;
-};
-
-const closeModal = () => {
-  showModal.value = false;
-};
-
-const handleSubmit = async () => {
-  if (!user.value) return;
-  try {
-    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'voluntarios');
-    if (isEditing.value) {
-      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'voluntarios', currentId.value);
-      await updateDoc(docRef, { ...form.value });
-    } else {
-      await addDoc(colRef, { ...form.value, createdAt: new Date().toISOString() });
-    }
-    closeModal();
-  } catch (error) {
-    console.error("Erro ao processar voluntário:", error);
-  }
-};
-
-const deleteVoluntario = async (id) => {
-  if (!confirm("Tem certeza que deseja eliminar este voluntário?")) return;
-  try {
-    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'voluntarios', id);
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Erro ao eliminar documento:", error);
-  }
-};
-
-const filteredVoluntarios = computed(() => {
-  if (!searchTerm.value) return voluntarios.value;
-  const term = searchTerm.value.toLowerCase();
-  return voluntarios.value.filter(v => 
-    v.nome.toLowerCase().includes(term) || 
-    v.especialidade.toLowerCase().includes(term)
-  );
-});
-</script>
-
 <template>
   <div class="app-container">
-    <!-- Sidebar -->
-    <aside class="sidebar-wrapper">
+    <!-- Componente do Menu Lateral -->
+    <div class="sidebar-wrapper">
       <MenuLateral />
-    </aside>
-
-    <!-- Main Content -->
+    </div>
+    
     <main class="content-wrapper">
-      <!-- Top Header Area -->
       <header class="header-section">
         <div class="header-content">
           <div class="brand-area">
             <div class="icon-box">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
             <div class="titles">
-              <h1>Voluntários</h1>
-              <p>Gestão Inteligente de Equipa</p>
+              <h1>Gestão de Voluntários</h1>
+              <p>Administre a equipa e os seus contactos</p>
             </div>
           </div>
-
+          
           <div class="action-area">
             <div class="search-container">
-              <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input 
-                v-model="searchTerm"
-                type="text" 
-                placeholder="Procurar por nome ou área..."
-              >
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" placeholder="Procurar voluntário..." />
             </div>
             <button @click="openAddModal" class="btn-new">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              <span>Novo Voluntário</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Adicionar Voluntário
             </button>
           </div>
         </div>
       </header>
 
-      <!-- Dashboard Body -->
+      <!-- Corpo Principal e Tabela -->
       <div class="scroll-area custom-scroll">
         <div class="table-card">
-          <div v-if="loading" class="loader-container">
-            <div class="orbit-spinner"></div>
-            <span>Sincronizando...</span>
-          </div>
-
-          <div v-else-if="filteredVoluntarios.length === 0" class="empty-state">
-            <div class="empty-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <h3>Nada encontrado</h3>
-            <p>Não existem voluntários registados com este critério.</p>
-            <button @click="searchTerm = ''" class="btn-clear">Limpar Pesquisa</button>
-          </div>
-
-          <div v-else class="table-responsive">
-            <table class="modern-table">
+          <div class="table-responsive">
+            <table class="modern-table" v-if="voluntarios.length > 0">
               <thead>
                 <tr>
-                  <th>Identificação</th>
-                  <th>Especialidade</th>
-                  <th>Escala</th>
-                  <th>Disponibilidade</th>
-                  <th class="text-right">Ações</th>
+                  <th>Voluntário</th>
+                  <th>Especialidade / Categoria</th>
+                  <th>Agenda</th>
+                  <th>Telefone</th>
+                  <th>Observações</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="v in filteredVoluntarios" :key="v.id" class="table-row">
+                <tr class="table-row" v-for="voluntario in voluntarios" :key="voluntario.id">
                   <td>
                     <div class="user-info">
-                      <div class="avatar">{{ v.nome.charAt(0) }}</div>
+                      <div class="avatar">
+                        {{ voluntario.nome ? voluntario.nome.charAt(0).toUpperCase() : 'V' }}
+                      </div>
                       <div class="details">
-                        <span class="name">{{ v.nome }}</span>
-                        <span class="subtext">{{ v.telefone || 'Sem contacto' }}</span>
+                        <span class="name">{{ voluntario.nome }}</span>
+                        <span class="subtext">ID: {{ voluntario.id.substring(0, 5).toUpperCase() }}</span>
                       </div>
                     </div>
                   </td>
                   <td>
                     <div class="specialty-box">
-                      <span class="main-spec">{{ v.especialidade }}</span>
-                      <span class="tag">{{ v.categoria }}</span>
+                      <span class="main-spec">{{ voluntario.especialidade }}</span>
+                      <span class="tag">{{ voluntario.categoria }}</span>
                     </div>
                   </td>
                   <td>
-                    <div class="schedule-box">
-                      <span class="day">{{ v.diaSemana }}</span>
-                      <span class="time">{{ v.horario }} <small>({{ v.tempoConsulta }}m)</small></span>
+                    <div class="details">
+                      <span class="name">{{ voluntario.diaSemana }}</span>
+                      <span class="subtext">{{ voluntario.horarioEntrada }} - {{ voluntario.horarioSaida }} ({{ voluntario.tempoConsulta }} min)</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="details">
+                      <span class="name">{{ voluntario.telefone }}</span>
                     </div>
                   </td>
                   <td>
                     <div class="status-wrapper">
-                      <span class="status-indicator" :class="v.observacoes === 'Inativo' ? 'is-inactive' : 'is-active'"></span>
-                      <span class="status-text">{{ v.observacoes }}</span>
+                      <div :class="['status-indicator', voluntario.observacoes === 'Inativo' ? 'is-inactive' : 'is-active']"></div>
+                      <span class="status-text">{{ voluntario.observacoes }}</span>
                     </div>
                   </td>
                   <td>
                     <div class="btn-group">
-                      <button @click="openEditModal(v)" class="btn-icon btn-edit" title="Editar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      <button @click="editVoluntario(voluntario)" class="btn-icon btn-edit" title="Editar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                       </button>
-                      <button @click="deleteVoluntario(v.id)" class="btn-icon btn-delete" title="Excluir">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                      <button @click="deleteVoluntario(voluntario.id)" class="btn-icon btn-delete" title="Eliminar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                       </button>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- Futuristic Modal -->
-    <transition name="fade">
-      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal-window">
-          <header class="modal-header">
-            <div class="modal-title">
-              <h2>{{ isEditing ? 'Editar Perfil' : 'Novo Voluntário' }}</h2>
-              <p>Controle de Acesso e Escala</p>
+            
+            <div v-else style="padding: 4rem; text-align: center; color: #94a3b8; font-weight: 600;">
+              Nenhum voluntário registado no momento.
             </div>
-            <button @click="closeModal" class="close-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
-          </header>
-
-          <div class="modal-body custom-scroll">
-            <form @submit.prevent="handleSubmit" id="vForm" class="grid-form">
-              <div class="form-group full-width">
-                <label>Nome Completo</label>
-                <input v-model="form.nome" type="text" required placeholder="Ex: Dr. António Costa">
-              </div>
-
-              <div class="form-group">
-                <label>Especialidade</label>
-                <select v-model="form.especialidade" required>
-                  <option value="" disabled>Selecione...</option>
-                  <option v-for="esp in especialidades" :key="esp" :value="esp">{{ esp }}</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>Público Alvo</label>
-                <select v-model="form.categoria" required>
-                  <option v-for="cat in categorias" :key="cat" :value="cat">{{ cat }}</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>Dia de Atendimento</label>
-                <select v-model="form.diaSemana" required>
-                  <option v-for="dia in diasSemana" :key="dia" :value="dia">{{ dia }}</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>Horário (HH:MM-HH:MM)</label>
-                <input v-model="form.horario" type="text" placeholder="Ex: 08:00-12:00" required>
-              </div>
-
-              <div class="form-group">
-                <label>Janela de Consulta (min)</label>
-                <input v-model.number="form.tempoConsulta" type="number" required>
-              </div>
-
-              <div class="form-group">
-                <label>Contacto Telefónico</label>
-                <input v-model="form.telefone" type="text" placeholder="+351 000 000 000">
-              </div>
-
-              <div class="form-group full-width">
-                <label>Periodicidade / Status</label>
-                <select v-model="form.observacoes" required class="accent-select">
-                  <option v-for="obs in listaObservacoes" :key="obs" :value="obs">{{ obs }}</option>
-                </select>
-              </div>
-            </form>
           </div>
-
-          <footer class="modal-footer">
-            <button type="button" @click="closeModal" class="btn-cancel">Cancelar</button>
-            <button type="submit" form="vForm" class="btn-save">
-              {{ isEditing ? 'Guardar Alterações' : 'Concluir Registo' }}
-            </button>
-          </footer>
         </div>
       </div>
-    </transition>
+
+      <!-- Modal Formulário para Criar/Editar -->
+      <transition name="fade">
+        <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+          <div class="modal-window">
+            <div class="modal-header">
+              <div class="modal-title">
+                <h2>{{ isEditing ? 'Editar Voluntário' : 'Novo Voluntário' }}</h2>
+                <p>Preencha os dados do voluntário abaixo</p>
+              </div>
+              <button @click="closeModal" class="close-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div class="modal-body custom-scroll">
+              <form @submit.prevent="saveVoluntario" class="grid-form" id="voluntario-form">
+                <!-- Nome -->
+                <div class="form-group full-width">
+                  <label>Nome Completo</label>
+                  <input v-model="form.nome" type="text" required placeholder="Ex: João Silva" />
+                </div>
+                
+                <!-- Especialidade -->
+                <div class="form-group">
+                  <label>Especialidade</label>
+                  <select v-model="form.especialidade" required class="accent-select">
+                    <option value="" disabled>Selecione</option>
+                    <option value="Clínica Médica">Clínica Médica</option>
+                    <option value="Dermatologia">Dermatologia</option>
+                    <option value="Endocrinologia">Endocrinologia</option>
+                    <option value="Ginecologia">Ginecologia</option>
+                    <option value="Nutrição">Nutrição</option>
+                    <option value="Psicologia">Psicologia</option>
+                    <option value="Reumatologia">Reumatologia</option>
+                    <option value="Fisioterapia">Fisioterapia</option>
+                    <option value="Gastroenterologia">Gastroenterologia</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+
+                <!-- Categoria -->
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <select v-model="form.categoria" required class="accent-select">
+                    <option value="" disabled>Selecione</option>
+                    <option value="Adultos">Adultos</option>
+                    <option value="Pediatria">Pediatria</option>
+                    <option value="Adulto e Pediatria">Adulto e Pediatria</option>
+                  </select>
+                </div>
+
+                <!-- Dia da Semana -->
+                <div class="form-group">
+                  <label>Dia da Semana</label>
+                  <select v-model="form.diaSemana" required class="accent-select">
+                    <option value="" disabled>Selecione</option>
+                    <option value="Segunda-feira">Segunda-feira</option>
+                    <option value="Terça-feira">Terça-feira</option>
+                    <option value="Quarta-feira">Quarta-feira</option>
+                    <option value="Quinta-feira">Quinta-feira</option>
+                    <option value="Sexta-feira">Sexta-feira</option>
+                    <option value="Sábado">Sábado</option>
+                    <option value="Domingo">Domingo</option>
+                  </select>
+                </div>
+
+                <!-- Tempo de Consulta -->
+                <div class="form-group">
+                  <label>Tempo de Consulta (min)</label>
+                  <input v-model="form.tempoConsulta" type="number" min="1" required placeholder="Ex: 30" />
+                </div>
+
+                <!-- Horário de Entrada -->
+                <div class="form-group">
+                  <label>Horário (Entrada)</label>
+                  <input v-model="form.horarioEntrada" type="time" required />
+                </div>
+
+                <!-- Horário de Saída -->
+                <div class="form-group">
+                  <label>Horário (Saída)</label>
+                  <input v-model="form.horarioSaida" type="time" required />
+                </div>
+                
+                <!-- Telefone -->
+                <div class="form-group">
+                  <label>Telefone</label>
+                  <input v-model="form.telefone" type="text" required placeholder="Ex: 912 345 678" />
+                </div>
+
+                <!-- Observações -->
+                <div class="form-group full-width">
+                  <label>Observações</label>
+                  <select v-model="form.observacoes" required class="accent-select">
+                    <option value="" disabled>Selecione</option>
+                    <option value="Semanal">Semanal</option>
+                    <option value="15 em 15 dias">15 em 15 dias</option>
+                    <option value="1 vez por mês">1 vez por mês</option>
+                    <option value="Inativo">Inativo</option>
+                  </select>
+                </div>
+              </form>
+            </div>
+            
+            <div class="modal-footer">
+              <button type="button" @click="closeModal" class="btn-cancel">Cancelar</button>
+              <button type="submit" form="voluntario-form" class="btn-save">
+                {{ isEditing ? 'Guardar Alterações' : 'Adicionar Voluntário' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </main>
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import MenuLateral from '../components/MenuLateral.vue';
+import { db } from '../firebase'; 
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+
+// Estado Reativo
+const voluntarios = ref([]);
+const showModal = ref(false);
+const isEditing = ref(false);
+const currentId = ref(null);
+
+// Dados do formulário atualizados com os novos campos
+const form = ref({
+  nome: '',
+  especialidade: '',
+  categoria: '',
+  diaSemana: '',
+  horarioEntrada: '',
+  horarioSaida: '',
+  tempoConsulta: '',
+  telefone: '',
+  observacoes: ''
+});
+
+// Referência à coleção "voluntarios" na Firestore
+const voluntariosCol = collection(db, 'voluntarios');
+
+// Buscar os dados à Firebase
+const fetchVoluntarios = async () => {
+  try {
+    const snapshot = await getDocs(voluntariosCol);
+    voluntarios.value = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error("Erro ao buscar voluntários:", error);
+  }
+};
+
+// Preparar modal para nova adição
+const openAddModal = () => {
+  isEditing.value = false;
+  currentId.value = null;
+  form.value = { 
+    nome: '',
+    especialidade: '',
+    categoria: '',
+    diaSemana: '',
+    horarioEntrada: '',
+    horarioSaida: '',
+    tempoConsulta: '',
+    telefone: '',
+    observacoes: ''
+  };
+  showModal.value = true;
+};
+
+// Preparar modal para edição
+const editVoluntario = (voluntario) => {
+  isEditing.value = true;
+  currentId.value = voluntario.id;
+  form.value = { ...voluntario }; // Clona os dados para o form
+  showModal.value = true;
+};
+
+// Fechar o modal
+const closeModal = () => {
+  showModal.value = false;
+};
+
+// Guardar ou Atualizar registo na Firebase
+const saveVoluntario = async () => {
+  try {
+    if (isEditing.value) {
+      // Atualizar documento existente
+      const docRef = doc(db, 'voluntarios', currentId.value);
+      await updateDoc(docRef, form.value);
+    } else {
+      // Adicionar novo documento
+      await addDoc(voluntariosCol, form.value);
+    }
+    await fetchVoluntarios(); // Recarrega a lista após a gravação
+    closeModal();
+  } catch (error) {
+    console.error("Erro ao guardar voluntário:", error);
+    alert("Ocorreu um erro ao guardar o voluntário.");
+  }
+};
+
+// Eliminar registo na Firebase
+const deleteVoluntario = async (id) => {
+  if (confirm('Tem a certeza que deseja eliminar este voluntário? Esta ação é irreversível.')) {
+    try {
+      const docRef = doc(db, 'voluntarios', id);
+      await deleteDoc(docRef);
+      await fetchVoluntarios(); // Recarrega a lista após eliminar
+    } catch (error) {
+      console.error("Erro ao eliminar voluntário:", error);
+      alert("Ocorreu um erro ao eliminar o voluntário.");
+    }
+  }
+};
+
+// Ao montar a página (iniciar o componente), carrega logo a lista
+onMounted(() => {
+  fetchVoluntarios();
+});
+</script>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -757,6 +751,18 @@ const filteredVoluntarios = computed(() => {
   background: #f0f9ff !important;
   color: #0369a1 !important;
   border-color: #bae6fd !important;
+}
+
+/* Estilo específico para input de time e date manterem o aspeto */
+input[type="time"], input[type="date"] {
+  font-family: inherit;
+}
+
+/* Estilo para input disabled (Data de Registo) */
+input:disabled {
+  background-color: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .modal-footer {

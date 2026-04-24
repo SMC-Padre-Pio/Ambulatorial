@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // 1. IMPORTAR O FIRESTORE
 
-// Substitua com as configurações do seu projeto Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCZO38dhFkZTmw9PHDxoa0pPGMbL7cAAlc",
   authDomain: "smc-ambulatorial.firebaseapp.com",
@@ -12,10 +12,8 @@ const firebaseConfig = {
   appId: "1:449220550732:web:fc55b9abaf548c5210d4e9"
 };
 
-// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
-
-// Inicializa e exporta o serviço de Autenticação
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-export { auth };
+export { auth, db };
