@@ -30,7 +30,7 @@
           <input 
             type="text" 
             v-model="searchQuery" 
-            placeholder="Buscar paciente por P ou CPF..." 
+            placeholder="Buscar paciente por A/J ou CPF..." 
             class="search-input"
             @keyup.enter="handleSearch"
           />
